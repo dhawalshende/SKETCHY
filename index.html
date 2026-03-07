@@ -57,10 +57,28 @@
             // Cream paper with warm gradient that shifts with distance
             const phase = clamp(dist / 1000, 0, 1);
             const r = lerp(252, 40, phase), g = lerp(248, 35, phase), b = lerp(235, 50, phase);
-            const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-            grad.addColorStop(0, `rgb(${r},${g},${b})`);
-            grad.addColorStop(1, `rgb(${r - 15},${g - 15},${b - 10})`);
-            ctx.fillStyle = grad; ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Base background
+            ctx.fillStyle = `rgb(${r},${g},${b})`;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // "Desk Lamp Spotlight" effect when it gets dark
+            if (phase > 0.2) {
+                // Approximate player screen position (usually fixed at ~canvas.width * 0.25)
+                const px = canvas.width * 0.25;
+                const py = player && player.y ? player.y + 22 : canvas.height / 2;
+
+                const grad = ctx.createRadialGradient(px, py, 50, px, py, lerp(800, 250, phase));
+                // Center is warm yellow/cream
+                grad.addColorStop(0, `rgba(255, 250, 230, ${phase * 0.85})`);
+                // Edges fade into the dark room color
+                grad.addColorStop(1, `rgba(${r},${g},${b}, 0)`);
+
+                ctx.globalCompositeOperation = 'screen';
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.globalCompositeOperation = 'source-over';
+            }
             // Notebook lines
             ctx.strokeStyle = `rgba(${lerp(180, 60, phase)},${lerp(200, 50, phase)},${lerp(220, 70, phase)},0.15)`;
             ctx.lineWidth = 1;
@@ -144,20 +162,28 @@
             const formulas = ['x²+y²=r²', 'E=mc²', '∫f(x)dx', 'TODO', 'F=ma', 'help', '42', 'π≈3.14', 'lim→∞', '404'];
             for (let i = 0; i < 10; i++) {
                 const fx = ((i * 220 + 100) - camX * 0.03) % (canvas.width + 400) - 100;
-                const fy = 80 + rng(i * 31) * canvas.height * 0.6;
+                const fy = 80 + rng(i * 31) * canvas.height * 0.6 + Math.sin(Date.now() / 1000 + i) * 15;
                 drawHandwritten(formulas[i % formulas.length], fx, fy, 12 + rng(i * 17) * 8, '#555', 'left');
             }
             ctx.restore();
-            // Doodle clouds
+            // Doodle clouds (Layer 2)
             ctx.save(); ctx.globalAlpha = lerp(0.12, 0.06, phase);
             for (let i = 0; i < 5; i++) {
                 const cx = ((i * 300 + 150) - camX * 0.06) % (canvas.width + 400) - 150;
-                const cy = 40 + rng(i * 23) * 80;
+                const cy = 40 + rng(i * 23) * 80 + Math.sin(Date.now() / 800 + i) * 20;
                 ctx.strokeStyle = '#888'; ctx.lineWidth = 1.5;
                 ctx.beginPath();
                 ctx.arc(cx, cy, 18, 0, Math.PI * 2); ctx.stroke();
                 ctx.beginPath(); ctx.arc(cx + 15, cy - 5, 14, 0, Math.PI * 2); ctx.stroke();
                 ctx.beginPath(); ctx.arc(cx - 12, cy + 2, 12, 0, Math.PI * 2); ctx.stroke();
+            }
+            ctx.restore();
+            // Deep Layer 3
+            ctx.save(); ctx.globalAlpha = lerp(0.04, 0.02, phase);
+            for (let i = 0; i < 8; i++) {
+                const fx = ((i * 280 + 50) - camX * 0.015) % (canvas.width + 400) - 100;
+                const fy = 150 + rng(i * 47) * canvas.height * 0.5 + Math.sin(Date.now() / 1200 + i) * 10;
+                drawHandwritten('∑n=1', fx, fy, 10 + rng(i * 11) * 6, '#444', 'left');
             }
             ctx.restore();
         }
@@ -167,27 +193,39 @@
         let audioCtx;
         function ensureAudio() { if (!audioCtx) audioCtx = new AudioCtx() }
         const sound = {
-            jump() { ensureAudio(); const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.connect(g); g.connect(audioCtx.destination); o.frequency.setValueAtTime(400, audioCtx.currentTime); o.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.1); g.gain.setValueAtTime(0.15, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15); o.start(); o.stop(audioCtx.currentTime + 0.15) },
-            death() { ensureAudio(); const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.connect(g); g.connect(audioCtx.destination); o.type = 'sawtooth'; o.frequency.setValueAtTime(400, audioCtx.currentTime); o.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime + 0.4); g.gain.setValueAtTime(0.2, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4); o.start(); o.stop(audioCtx.currentTime + 0.4) },
-            collect() { ensureAudio(); const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.connect(g); g.connect(audioCtx.destination); o.frequency.setValueAtTime(600, audioCtx.currentTime); o.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.08); g.gain.setValueAtTime(0.12, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.12); o.start(); o.stop(audioCtx.currentTime + 0.12) },
-            sike() { ensureAudio(); const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.connect(g); g.connect(audioCtx.destination); o.type = 'square'; o.frequency.setValueAtTime(300, audioCtx.currentTime); o.frequency.setValueAtTime(200, audioCtx.currentTime + 0.1); o.frequency.setValueAtTime(150, audioCtx.currentTime + 0.2); g.gain.setValueAtTime(0.15, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35); o.start(); o.stop(audioCtx.currentTime + 0.35) },
-            betrayal() { ensureAudio(); const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.connect(g); g.connect(audioCtx.destination); o.type = 'triangle'; o.frequency.setValueAtTime(800, audioCtx.currentTime); o.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.3); g.gain.setValueAtTime(0.2, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3); o.start(); o.stop(audioCtx.currentTime + 0.3) },
-            coffee() { ensureAudio();[600, 800, 1000].forEach((f, i) => { const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.connect(g); g.connect(audioCtx.destination); o.frequency.value = f; g.gain.setValueAtTime(0.1, audioCtx.currentTime + i * 0.08); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + i * 0.08 + 0.1); o.start(audioCtx.currentTime + i * 0.08); o.stop(audioCtx.currentTime + i * 0.08 + 0.1) }) }
+            jump() { if (isMuted) return; ensureAudio(); const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.connect(g); g.connect(audioCtx.destination); o.frequency.setValueAtTime(400, audioCtx.currentTime); o.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.1); g.gain.setValueAtTime(0.15, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15); o.start(); o.stop(audioCtx.currentTime + 0.15) },
+            death() { if (isMuted) return; ensureAudio(); const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.connect(g); g.connect(audioCtx.destination); o.type = 'sawtooth'; o.frequency.setValueAtTime(400, audioCtx.currentTime); o.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime + 0.4); g.gain.setValueAtTime(0.2, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4); o.start(); o.stop(audioCtx.currentTime + 0.4) },
+            collect() { if (isMuted) return; ensureAudio(); const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.connect(g); g.connect(audioCtx.destination); o.frequency.setValueAtTime(600, audioCtx.currentTime); o.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.08); g.gain.setValueAtTime(0.12, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.12); o.start(); o.stop(audioCtx.currentTime + 0.12) },
+            sike() { if (isMuted) return; ensureAudio(); const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.connect(g); g.connect(audioCtx.destination); o.type = 'square'; o.frequency.setValueAtTime(300, audioCtx.currentTime); o.frequency.setValueAtTime(200, audioCtx.currentTime + 0.1); o.frequency.setValueAtTime(150, audioCtx.currentTime + 0.2); g.gain.setValueAtTime(0.15, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35); o.start(); o.stop(audioCtx.currentTime + 0.35) },
+            betrayal() { if (isMuted) return; ensureAudio(); const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.connect(g); g.connect(audioCtx.destination); o.type = 'triangle'; o.frequency.setValueAtTime(800, audioCtx.currentTime); o.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.3); g.gain.setValueAtTime(0.2, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3); o.start(); o.stop(audioCtx.currentTime + 0.3) },
+            coffee() { if (isMuted) return; ensureAudio();[600, 800, 1000].forEach((f, i) => { const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.connect(g); g.connect(audioCtx.destination); o.frequency.value = f; g.gain.setValueAtTime(0.1, audioCtx.currentTime + i * 0.08); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + i * 0.08 + 0.1); o.start(audioCtx.currentTime + i * 0.08); o.stop(audioCtx.currentTime + i * 0.08 + 0.1) }) },
+            popup() { if (isMuted) return; ensureAudio(); const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.connect(g); g.connect(audioCtx.destination); o.type = 'sine'; o.frequency.setValueAtTime(500, audioCtx.currentTime); o.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 0.05); g.gain.setValueAtTime(0.1, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05); o.start(); o.stop(audioCtx.currentTime + 0.05) }
         };
 
         // ===== INPUT =====
         const keys = {};
         let mouseX = 0, mouseY = 0;
-        document.addEventListener('keydown', e => { keys[e.code] = true; if (e.code === 'Space') e.preventDefault() });
+        document.addEventListener('keydown', e => {
+            keys[e.code] = true;
+            if (e.code === 'Space') e.preventDefault();
+            if (e.code === 'Escape' || e.code === 'KeyP') {
+                if (gameState === 'PLAYING') isPaused = !isPaused;
+            }
+            if (e.code === 'KeyM') isMuted = !isMuted;
+        });
         document.addEventListener('keyup', e => { keys[e.code] = false });
         canvas.addEventListener('mousemove', e => { const r = canvas.getBoundingClientRect(); mouseX = (e.clientX - r.left) * (canvas.width / r.width); mouseY = (e.clientY - r.top) * (canvas.height / r.height) });
         canvas.addEventListener('click', handleClick);
 
         // ===== GAME STATE =====
         let gameState = 'MENU';
+        let isPaused = false;
+        let isMuted = false;
+        let highScore = parseInt(localStorage.getItem('sketchy_highscore')) || 0;
         let distance = 0, score = 0, lives = 3, freeLifeUsed = false;
         let camera = { x: 0 };
         let player = { x: 200, y: 300, vy: 0, grounded: false, dead: false };
+        let coyoteTimer = 0;
         let platforms = [], obstacles = [], collectibles = [], particles = [];
         let gameSpeed = 180, invincibleTimer = 0, screenShake = 0, respawnPause = 0;
         let lastPlatX = 0, lastPlatY = 350;
@@ -244,8 +282,14 @@
             if (sikeShown) {
                 drawHandwritten('SIKE! 😂', startBtnX + BTNW / 2, startBtnY + BTNH / 2, 34, '#cc3333', 'center');
             } else {
+                ctx.save();
+                const hoverScale = startBtnFleeing ? 1 : 1 + Math.sin(Date.now() / 200) * 0.02;
+                ctx.translate(startBtnX + BTNW / 2, startBtnY + BTNH / 2);
+                ctx.scale(hoverScale, hoverScale);
+                ctx.translate(-(startBtnX + BTNW / 2), -(startBtnY + BTNH / 2));
                 sketchyRect(startBtnX, startBtnY, BTNW, BTNH, '#f5f0e5', '#2c2c2c', 2);
                 drawHandwritten(startBtnText, startBtnX + BTNW / 2, startBtnY + BTNH / 2, 24, '#2c2c2c', 'center');
+                ctx.restore();
             }
             // Other buttons
             const bx = canvas.width / 2 - BTNW / 2;
@@ -385,58 +429,117 @@
             const isVanishing = distance > 300 && Math.random() < 0.08;
             platforms.push({ x, y, w, h: 18, isGround: false, moving: isMoving, moveRange: 35, baseY: y, vanish: isVanishing, vanishTimer: 0, gone: false });
             lastPlatX = x + w; lastPlatY = y;
-            if (x > 1500 && Math.random() < 0.35 && !isVanishing) spawnObstacle(x, y, w);
-            if (x > 1500 && Math.random() < 0.2) spawnCollectible(x, y, w);
+            if (x > 600 && Math.random() < 0.5 && !isVanishing) spawnObstacle(x, y, w, isMoving);
+            if (x > 600 && Math.random() < 0.5 && !isVanishing) spawnCollectible(x, y, w, isMoving);
         }
 
-        function spawnObstacle(px, py, pw) {
-            const r = Math.random(), ox = px + 30 + Math.random() * (pw - 60);
-            if (r < 0.3) obstacles.push({ type: 'assignment', x: ox, y: py - 22, w: 28, h: 22 });
-            else if (r < 0.55) obstacles.push({ type: 'textbook', x: ox, y: py - 35, w: 20, h: 35 });
-            else if (r < 0.8) obstacles.push({ type: 'professor', x: ox, y: py - 42, w: 30, h: 42, baseX: ox, moveDir: 1, moveRange: pw * 0.35, platX: px, platW: pw });
-            else obstacles.push({ type: 'scanner', x: px, y: py - 50, w: pw, h: 50, timer: 0, active: true });
+        function spawnObstacle(px, py, pw, isMoving) {
+            // Keep obstacles strictly within the center of the platform
+            const ox = px + (pw * 0.25) + Math.random() * (pw * 0.5);
+            const r = Math.random();
+            if (r < 0.3) obstacles.push({ type: 'assignment', x: ox, y: py - 22, baseY: py - 22, w: 28, h: 22, moving: isMoving });
+            else if (r < 0.55) obstacles.push({ type: 'textbook', x: ox, y: py - 35, baseY: py - 35, w: 20, h: 35, moving: isMoving });
+            else if (r < 0.8) obstacles.push({ type: 'professor', x: ox, y: py - 42, baseY: py - 42, w: 30, h: 42, baseX: ox, moveDir: 1, moveRange: pw * 0.25, platX: px, platW: pw, moving: isMoving });
+            else obstacles.push({ type: 'scanner', x: px, y: py - 50, baseY: py - 50, w: pw, h: 50, timer: 0, active: true, moving: isMoving });
         }
 
-        function spawnCollectible(px, py, pw) {
-            const cx = px + 30 + Math.random() * (pw - 60);
-            if (Math.random() < 0.4) collectibles.push({ type: 'coffee', x: cx, y: py - 35, collected: false });
-            else collectibles.push({ type: 'cheatsheet', x: cx, y: py - 30, collected: false });
+        function spawnCollectible(px, py, pw, isMoving) {
+            // Keep collectibles strictly within the center of the platform
+            const cx = px + (pw * 0.25) + Math.random() * (pw * 0.5);
+            // 50% chance to sit right ON the platform, 50% chance to be high up (but reachable) requiring a jump
+            const cy = Math.random() < 0.5 ? py - 12 : Math.max(py - 75, 80);
+            if (Math.random() < 0.4) collectibles.push({ type: 'coffee', x: cx, y: cy, baseY: cy, collected: false, moving: isMoving });
+            else collectibles.push({ type: 'cheatsheet', x: cx, y: cy, baseY: cy, collected: false, moving: isMoving });
         }
 
         // ===== BETRAYAL SYSTEM =====
         const betrayals = [
-            { dist: 150, id: 'swap', text: 'Controls under maintenance 🔧', duration: 5, apply() { controlsSwapped = true }, remove() { controlsSwapped = false } },
-            { dist: 250, id: 'moon', text: 'Gravity is optional today 🌙', duration: 5, apply() { moonGravity = true }, remove() { moonGravity = false } },
-            { dist: 350, id: 'speed', text: 'Semester speedrun activated ⚡', duration: 5, apply() { speedBoost = true }, remove() { speedBoost = false } },
-            { dist: 450, id: 'mirror', text: 'Mirror mode enabled 🪞', duration: 5, apply() { mirrorMode = true }, remove() { mirrorMode = false } },
-            { dist: 550, id: 'nojump', text: 'spacebar.exe stopped working 💀', duration: 5, apply() { noJump = true }, remove() { noJump = false } },
-            { dist: 650, id: 'zoom', text: 'Camera: intimate mode 🔍', duration: 5, apply() { zoomMode = true }, remove() { zoomMode = false } },
+            { dist: 150, id: 'swap', text: 'Controls under maintenance 🔧', duration: 9, apply() { controlsSwapped = true }, remove() { controlsSwapped = false } },
+            { dist: 250, id: 'moon', text: 'Gravity is optional today 🌙', duration: 9, apply() { moonGravity = true }, remove() { moonGravity = false } },
+            { dist: 350, id: 'speed', text: 'Semester speedrun activated ⚡', duration: 9, apply() { speedBoost = true }, remove() { speedBoost = false } },
+            { dist: 450, id: 'mirror', text: 'Mirror mode enabled 🪞', duration: 9, apply() { mirrorMode = true }, remove() { mirrorMode = false } },
+            { dist: 550, id: 'nojump', text: 'spacebar.exe stopped working 💀', duration: 9, apply() { noJump = true }, remove() { noJump = false } },
+            { dist: 650, id: 'zoom', text: 'Camera: intimate mode 🔍', duration: 9, apply() { zoomMode = true }, remove() { zoomMode = false } },
         ];
 
         function updateBetrayals(dt) {
-            if (betrayalTimer > 0) { betrayalTimer -= dt; if (betrayalTimer <= 0 && activeBetrayal) { activeBetrayal.remove(); activeBetrayal = null } }
-            if (betrayalTextTimer > 0) betrayalTextTimer -= dt;
-            for (const b of betrayals) {
-                if (distance >= b.dist && !betrayalTriggered[b.id] && !activeBetrayal) {
-                    betrayalTriggered[b.id] = true; activeBetrayal = b; betrayalTimer = b.duration;
-                    betrayalText = b.text; betrayalTextTimer = b.duration; b.apply(); sound.betrayal(); screenShake = 0.5; break;
+            // ---- Active phase countdown ----
+            if (betrayalTimer > 0) {
+                betrayalTimer -= dt;
+                if (betrayalTimer <= 0 && activeBetrayal) {
+                    activeBetrayal.remove(); activeBetrayal = null;
+                    // Brief invincibility at phase end so player isn't killed mid-recovery
+                    invincibleTimer = Math.max(invincibleTimer, 1.2);
+                    // Spawn a long safe platform when returning to normal
+                    spawnSafeTransitionPlatform();
                 }
             }
+            if (betrayalTextTimer > 0) betrayalTextTimer -= dt;
+
+            // ---- Trigger new betrayals instantly ----
+            for (const b of betrayals) {
+                if (distance >= b.dist && !betrayalTriggered[b.id] && !activeBetrayal) {
+                    betrayalTriggered[b.id] = true;
+                    activeBetrayal = b;
+                    betrayalTimer = b.duration;
+                    betrayalText = b.text;
+                    betrayalTextTimer = b.duration;
+                    b.apply();
+                    spawnSafeTransitionPlatform();
+                    invincibleTimer = Math.max(invincibleTimer, 1.2);
+                    sound.betrayal(); screenShake = 0.5; break;
+                }
+            }
+            // ---- Random betrayals after 700m ----
             if (distance > 700 && !activeBetrayal && Math.random() < 0.002) {
                 const pool = betrayals.filter(b => b.id !== 'nojump');
                 const b = pool[Math.floor(Math.random() * pool.length)];
-                activeBetrayal = { ...b }; betrayalTimer = b.duration * 0.7;
-                betrayalText = b.text; betrayalTextTimer = b.duration * 0.7; b.apply(); sound.betrayal(); screenShake = 0.5;
+                activeBetrayal = { ...b };
+                betrayalTimer = b.duration * 0.7;
+                betrayalText = b.text;
+                betrayalTextTimer = b.duration * 0.7;
+                b.apply();
+                spawnSafeTransitionPlatform();
+                invincibleTimer = Math.max(invincibleTimer, 1.2);
+                sound.betrayal(); screenShake = 0.5;
             }
+        }
+
+        function spawnSafeTransitionPlatform() {
+            const safeX = camera.x + canvas.width;
+            const safeY = Math.min(player.y + 100, canvas.height - 100);
+
+            // Critical Fix: Clear any previously generated future platforms to prevent overlapping levels!
+            platforms = platforms.filter(p => p.x < safeX - 50);
+            obstacles = obstacles.filter(o => o.x < safeX - 50);
+            collectibles = collectibles.filter(c => c.x < safeX - 50);
+
+            platforms.push({
+                x: safeX,
+                y: safeY,
+                w: 450,
+                h: 22,
+                isGround: false,
+                moving: false,
+                moveRange: 0,
+                baseY: safeY,
+                vanish: false,
+                vanishTimer: 0,
+                gone: false,
+                drawProgress: 0 // Starts at 0, draws rapidly to 1
+            });
+            lastPlatX = safeX + 450;
+            lastPlatY = safeY;
+            invincibleTimer = 1.5;
         }
 
         // ===== GAME UPDATE =====
         function updateGame(dt) {
             if (player.dead) return;
-            // Cap base speed a bit lower, and make the progression slightly more gradual
-            gameSpeed = Math.min(320, 180 + distance * 0.25);
-            // Lowered speed boost multiplier from 1.8 to 1.35 so the speedrun section is fast but playable
-            const currentSpeed = (speedBoost ? gameSpeed * 1.35 : gameSpeed) * (coffeeBoostTimer > 0 ? 1.25 : 1);
+            // Cap base speed lower for easier gameplay
+            gameSpeed = Math.min(270, 180 + distance * 0.18);
+            // Speedrun multiplier reduced to 1.1 so the seedrun section is manageable
+            const currentSpeed = (speedBoost ? gameSpeed * 1.1 : gameSpeed) * (coffeeBoostTimer > 0 ? 1.25 : 1);
             if (coffeeBoostTimer > 0) coffeeBoostTimer -= dt;
 
             // During respawn pause — freeze EVERYTHING about the player
@@ -462,27 +565,74 @@
             if (ml) player.x -= moveSpeed * dt; else if (mr) player.x += moveSpeed * dt;
             else player.x += (canvas.width * 0.25 - player.x) * 2 * dt;
             player.x = clamp(player.x, 50, canvas.width - 50);
+            // Coyote Time Tracking
+            if (player.grounded) {
+                coyoteTimer = 0.15; // 150ms of grace time after leaving a platform
+            } else {
+                coyoteTimer -= dt;
+            }
+
             // Gravity & jump
             const grav = moonGravity ? 500 : 1200, jf = moonGravity ? -280 : -520;
-            let wj = keys['Space'] || keys['ArrowUp'] || keys['KeyW'];
-            if (noJump) wj = false;
-            if (wj && player.grounded) { player.vy = jf; player.grounded = false; sound.jump() }
-            if (keys['Space'] && player.vy < 0 && !noJump) player.vy -= (moonGravity ? 200 : 400) * dt;
+            let wj = ((!noJump && keys['Space']) || keys['ArrowUp'] || keys['KeyW']) && !keys.jumpProcessed;
+
+            if (wj && coyoteTimer > 0) {
+                player.vy = jf;
+                player.grounded = false;
+                coyoteTimer = 0;
+                keys.jumpProcessed = true;
+                sound.jump();
+                // Dust particles on jump
+                for (let i = 0; i < 5; i++) particles.push({ x: player.x + Math.random() * 10 - 5, y: player.y + 44, vx: (Math.random() - 0.5) * 50, vy: -Math.random() * 20, life: 0.4, color: 'rgba(150,140,120,0.5)' });
+            }
+            if (!keys['Space'] && !keys['ArrowUp'] && !keys['KeyW']) {
+                keys.jumpProcessed = false;
+            }
+
+            // Variable jump height: stronger pull upwards if holding an allowed jump key
+            let holdingJump = (!noJump && keys['Space']) || keys['ArrowUp'] || keys['KeyW'];
+            if (holdingJump && player.vy < 0) player.vy -= (moonGravity ? 250 : 600) * dt;
+
+
             player.vy += grav * dt; player.vy = Math.min(player.vy, 800);
             player.y += player.vy * dt;
             // Platform collision
+            const wasGrounded = player.grounded;
+            let justLanded = false;
             player.grounded = false;
             for (const p of platforms) {
                 if (p.gone) continue;
+
+                if (p.drawProgress !== undefined && p.drawProgress < 1) {
+                    p.drawProgress += dt * 4; // Draws the full platform over 0.25 seconds
+                    if (p.drawProgress > 1) p.drawProgress = 1;
+                    // Spew frantic pencil dust at the leading edge while it draws
+                    for (let i = 0; i < 2; i++) {
+                        particles.push({
+                            x: p.x + p.w * p.drawProgress + (Math.random() * 10 - 5),
+                            y: p.y + Math.random() * p.h,
+                            vx: Math.random() * 80 - 40,
+                            vy: -Math.random() * 40 - 10,
+                            life: 0.2 + Math.random() * 0.2,
+                            color: '#2c2c2c'
+                        });
+                    }
+                }
+
                 if (p.moving) p.y = p.baseY + Math.sin(Date.now() / 800) * p.moveRange;
                 const sx = p.x - camera.x;
                 if (player.x > sx - 10 && player.x < sx + p.w + 10) {
                     if (player.vy >= 0 && player.y + 44 >= p.y && player.y + 44 <= p.y + p.h + player.vy * dt + 8) {
                         player.y = p.y - 44; player.vy = 0; player.grounded = true;
+                        if (!wasGrounded) justLanded = true;
                         if (p.vanish && p.vanishTimer === 0) p.vanishTimer = 1;
                     }
                 }
                 if (p.vanishTimer > 0) { p.vanishTimer -= dt; if (p.vanishTimer <= 0) p.gone = true }
+            }
+            if (justLanded) {
+                screenShake = Math.max(screenShake, 0.15);
+                for (let i = 0; i < 8; i++) particles.push({ x: player.x + Math.random() * 20 - 10, y: player.y + 44, vx: (Math.random() - 0.5) * 100, vy: -Math.random() * 30, life: 0.4, color: 'rgba(150,140,120,0.6)' });
             }
             // SAFETY NET: if player below screen but has invincibility, force respawn
             if (player.y > canvas.height + 50) {
@@ -494,6 +644,7 @@
             }
             // Obstacle collision
             for (const o of obstacles) {
+                if (o.moving) o.y = o.baseY + Math.sin(Date.now() / 800) * 35;
                 if (o.type === 'professor') { o.x += o.moveDir * 50 * dt; if (o.x > o.baseX + o.moveRange) o.moveDir = -1; if (o.x < o.baseX - o.moveRange * 0.5) o.moveDir = 1 }
                 if (o.type === 'scanner') { o.timer += dt; o.active = Math.sin(o.timer * 3) > 0 }
                 const ox = o.x - camera.x;
@@ -505,6 +656,7 @@
             }
             // Collectibles
             for (const c of collectibles) {
+                if (c.moving) c.y = c.baseY + Math.sin(Date.now() / 800) * 35;
                 if (c.collected) continue;
                 const cx = c.x - camera.x;
                 if (Math.abs(player.x - cx) < 25 && Math.abs(player.y + 20 - c.y) < 25) {
@@ -549,7 +701,16 @@
             };
             const pool = comments[cause] || comments.fall;
             deathComment = pool[Math.floor(Math.random() * pool.length)];
-            if (lives <= 0) { player.dead = true; for (let i = 0; i < 20; i++)particles.push({ x: player.x, y: Math.min(player.y, canvas.height - 50) + 20, vx: (Math.random() - 0.5) * 200, vy: (Math.random() - 0.5) * 200, life: 0.8, color: ['#2c2c2c', '#cc3333', '#888'][i % 3] }); setTimeout(() => { gameState = 'REPORT'; initReport() }, 1500); return }
+            if (lives <= 0) {
+                player.dead = true;
+                if (distance > highScore) {
+                    highScore = Math.floor(distance);
+                    localStorage.setItem('sketchy_highscore', highScore.toString());
+                }
+                for (let i = 0; i < 20; i++) particles.push({ x: player.x, y: Math.min(player.y, canvas.height - 50) + 20, vx: (Math.random() - 0.5) * 200, vy: (Math.random() - 0.5) * 200, life: 0.8, color: ['#2c2c2c', '#cc3333', '#888'][i % 3] });
+                setTimeout(() => { gameState = 'REPORT'; initReport() }, 1500);
+                return;
+            }
             invincibleTimer = 2; screenShake = 0.8; respawnPlayer();
             deathCommentTimer = 2.5; deathCommentX = player.x; deathCommentY = player.y - 40;
         }
@@ -560,21 +721,56 @@
             const t = Date.now() / 100;
             const running = player.grounded;
             const spd = clamp(gameSpeed / 350, 0, 1);
+            const darkPhase = clamp(distance / 1000, 0, 1); // 0 = bright, 1 = midnight
+
             // Body lean when running fast
             const lean = running ? spd * 0.15 : player.vy < 0 ? -0.08 : player.vy > 200 ? 0.12 : 0;
             ctx.save(); ctx.translate(px, py + 22); ctx.rotate(lean); ctx.translate(-px, -(py + 22));
-            const col = '#2c2c2c'; const lw = 3;
-            ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
+            // Draw a thick white/glowing aura underneath the character in late game 
+            // so they never blend into dark backgrounds or obstacles
+            if (darkPhase > 0.1) {
+                const auraWidth = 3 + (darkPhase * 6); // Gets thicker as it gets darker
+                drawStickmanBones('rgba(255, 255, 255, ' + clamp(darkPhase * 1.5, 0, 0.9) + ')', auraWidth);
+            }
+
+            // Draw the actual black ink character on top
+            drawStickmanBones('#2c2c2c', 3);
+
+            // Speed lines when fast
+            if (running && spd > 0.5) {
+                ctx.globalAlpha = (spd - 0.5) * 0.6; ctx.lineWidth = 1; ctx.strokeStyle = '#2c2c2c';
+                for (let i = 0; i < 3; i++) {
+                    const sy = py + 5 + i * 15, sx = px - 20 - i * 8;
+                    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx - 15 - spd * 20, sy); ctx.stroke();
+                }
+                ctx.globalAlpha = 1;
+            }
+            ctx.restore();
+            // Dust when running
+            if (running && Math.random() < 0.3) particles.push({ x: px - 5 + Math.random() * 10, y: py + 44, vx: -30 - Math.random() * 20, vy: -Math.random() * 15, life: 0.3, color: 'rgba(150,140,120,0.4)' });
+        }
+
+        // Helper to draw the physical lines of the stickman so we can stroke it twice (aura + core)
+        function drawStickmanBones(color, lineWidth) {
+            const px = player.x, py = player.y;
+            const t = Date.now() / 100;
+            const running = player.grounded;
+            const spd = clamp(gameSpeed / 350, 0, 1);
+
+            ctx.strokeStyle = color; ctx.lineWidth = lineWidth; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
             // Head - circle with dot eyes
             ctx.beginPath(); ctx.arc(px, py - 10, 10, 0, Math.PI * 2); ctx.stroke();
-            // Eyes that react
-            const eyeY = player.vy < -100 ? py - 13 : player.vy > 200 ? py - 8 : py - 11; // look up/down
-            const eyeSize = player.vy > 300 ? 2.5 : 1.8; // wide when falling fast
-            ctx.fillStyle = col;
-            ctx.beginPath(); ctx.arc(px - 3.5, eyeY, eyeSize, 0, Math.PI * 2); ctx.fill();
-            ctx.beginPath(); ctx.arc(px + 3.5, eyeY, eyeSize, 0, Math.PI * 2); ctx.fill();
+            // Eyes that react (only draw if it's the main black stroke)
+            if (color === '#2c2c2c') {
+                const eyeY = player.vy < -100 ? py - 13 : player.vy > 200 ? py - 8 : py - 11; // look up/down
+                const eyeSize = player.vy > 300 ? 2.5 : 1.8; // wide when falling fast
+                ctx.fillStyle = color;
+                ctx.beginPath(); ctx.arc(px - 3.5, eyeY, eyeSize, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(px + 3.5, eyeY, eyeSize, 0, Math.PI * 2); ctx.fill();
+            }
             // Mouth - changes with state
-            ctx.lineWidth = 1.5;
+            ctx.lineWidth = lineWidth > 3 ? lineWidth : 1.5;
             if (player.vy > 300) {// scared O mouth
                 ctx.beginPath(); ctx.arc(px, py - 5, 3, 0, Math.PI * 2); ctx.stroke();
             } else if (coffeeBoostTimer > 0) {// grin
@@ -583,7 +779,7 @@
                 ctx.beginPath(); ctx.moveTo(px - 2, py - 6); ctx.lineTo(px + 3, py - 7); ctx.stroke();
             }
             // Spine/body
-            ctx.lineWidth = lw;
+            ctx.lineWidth = lineWidth;
             ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px, py + 22); ctx.stroke();
             // Legs with fluid animation
             const legFreq = running ? t * 1.2 : 0;
@@ -608,18 +804,6 @@
             const rax = px + 12 + Math.sin(armFreq + Math.PI) * armAmp * 0.4, ray = py + 8 - Math.cos(armFreq + Math.PI) * armAmp * 0.3;
             const rhx = px + 16 + Math.sin(armFreq + Math.PI) * armAmp * 0.7, rhy = py + 16 - Math.cos(armFreq + Math.PI) * armAmp * 0.5;
             ctx.beginPath(); ctx.moveTo(px, py + 3); ctx.lineTo(rax, ray); ctx.lineTo(rhx, rhy); ctx.stroke();
-            // Speed lines when fast
-            if (running && spd > 0.5) {
-                ctx.globalAlpha = (spd - 0.5) * 0.6; ctx.lineWidth = 1;
-                for (let i = 0; i < 3; i++) {
-                    const sy = py + 5 + i * 15, sx = px - 20 - i * 8;
-                    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx - 15 - spd * 20, sy); ctx.stroke();
-                }
-                ctx.globalAlpha = 1;
-            }
-            ctx.restore();
-            // Dust when running
-            if (running && Math.random() < 0.3) particles.push({ x: px - 5 + Math.random() * 10, y: py + 44, vx: -30 - Math.random() * 20, vy: -Math.random() * 15, life: 0.3, color: 'rgba(150,140,120,0.4)' });
         }
 
         // ===== DRAW GAME =====
@@ -634,13 +818,14 @@
             for (const p of platforms) {
                 if (p.gone) continue;
                 const sx = p.x - camera.x;
-                if (sx > canvas.width + 50 || sx + p.w < -50) continue;
+                const currentW = p.drawProgress !== undefined ? Math.max(10, p.w * p.drawProgress) : p.w;
+                if (sx > canvas.width + 50 || sx + currentW < -50) continue;
                 let a = 1; if (p.vanishTimer > 0) a = p.vanishTimer;
                 ctx.globalAlpha = a;
-                sketchyRect(sx, p.y, p.w, p.h, p.isGround ? '#d8d0c0' : '#e8e0d0', '#2c2c2c', 2);
+                sketchyRect(sx, p.y, currentW, p.h, p.isGround ? '#d8d0c0' : '#e8e0d0', '#2c2c2c', 2);
                 // Hatching on surface
                 ctx.strokeStyle = 'rgba(0,0,0,0.06)'; ctx.lineWidth = 1;
-                for (let hx = sx + 8; hx < sx + p.w - 8; hx += 12) { ctx.beginPath(); ctx.moveTo(hx, p.y + 3); ctx.lineTo(hx + 5, p.y + p.h - 3); ctx.stroke() }
+                for (let hx = sx + 8; hx < sx + currentW - 8; hx += 12) { ctx.beginPath(); ctx.moveTo(hx, p.y + 3); ctx.lineTo(hx + 5, p.y + p.h - 3); ctx.stroke() }
                 ctx.globalAlpha = 1;
             }
             // Obstacles
@@ -695,14 +880,23 @@
             // Death comment
             if (deathCommentTimer > 0) { ctx.globalAlpha = Math.min(1, deathCommentTimer); drawHandwritten(deathComment, deathCommentX, deathCommentY, 16, '#cc3333', 'center'); ctx.globalAlpha = 1 }
             // Betrayal text
-            if (betrayalTextTimer > 0) { ctx.globalAlpha = Math.min(1, betrayalTextTimer); sketchyRect(canvas.width / 2 - 200, 55, 400, 40, 'rgba(252,248,235,0.9)', '#cc3333', 2); drawHandwritten(betrayalText, canvas.width / 2, 75, 15, '#cc3333', 'center'); ctx.globalAlpha = 1 }
+            if (betrayalTextTimer > 0) {
+                ctx.globalAlpha = Math.min(1, betrayalTextTimer);
+                sketchyRect(canvas.width / 2 - 200, 55, 400, 40, 'rgba(252,248,235,0.9)', '#cc3333', 2);
+                drawHandwritten(betrayalText, canvas.width / 2, 75, 15, '#cc3333', 'center');
+                ctx.globalAlpha = 1;
+            }
             // Coffee boost
             if (coffeeBoostTimer > 0) { ctx.globalAlpha = Math.min(1, coffeeBoostTimer); drawHandwritten('☕ CAFFEINE RUSH', canvas.width / 2, 110, 14, '#8b6b3b', 'center'); ctx.globalAlpha = 1 }
             // HUD
             const hudPhase = distance < 200 ? 'Week 1' : distance < 400 ? 'Mid-Sem' : distance < 700 ? 'Pre-Finals' : 'Finals';
             for (let i = 0; i < 3; i++) { ctx.fillStyle = i < lives ? '#cc3333' : 'rgba(0,0,0,0.1)'; ctx.font = '20px serif'; ctx.textAlign = 'left'; ctx.fillText('♥', 20 + i * 28, 30) }
             drawHandwritten(`${distance}m • ${hudPhase}`, canvas.width / 2, 25, 18, '#555', 'center');
+            drawHandwritten(`Best: ${highScore}m`, canvas.width / 2, 45, 14, '#888', 'center');
             drawHandwritten(`Sem: ${Math.floor(distance / 125) + 1}`, canvas.width - 100, 25, 14, '#888', 'center');
+
+            if (isMuted) drawHandwritten('🔇 (M)', canvas.width - 30, canvas.height - 20, 16, '#888', 'center');
+            else drawHandwritten('🔊 (M)', canvas.width - 30, canvas.height - 20, 16, '#d8d8d8', 'center');
             // Milestone markers
             const milestones = { 100: '📚 First Week survived', 200: '📝 Mid-Sems approaching...', 300: '😰 50% students dropped here', 500: '💯 Pre-Exam panic zone', 750: '✏️ Pencil running out of ink', 1000: '🎓 TOPPER.' };
             [100, 200, 300, 500, 750, 1000].forEach(m => { const mx = m * 10 - camera.x; if (mx > -100 && mx < canvas.width + 100) { ctx.globalAlpha = 0.3; ctx.strokeStyle = '#999'; ctx.setLineDash([4, 8]); ctx.beginPath(); ctx.moveTo(mx, 0); ctx.lineTo(mx, canvas.height); ctx.stroke(); ctx.setLineDash([]); if (milestones[m]) drawHandwritten(milestones[m], mx + 10, canvas.height - 30, 11, '#888'); ctx.globalAlpha = 1 } });
@@ -760,7 +954,20 @@
         function gameLoop(time) {
             const dt = Math.min((time - lastTime) / 1000, 0.05); lastTime = time;
             if (gameState === 'MENU') { updateMenu(dt); drawMenu() }
-            else if (gameState === 'PLAYING') { updateGame(dt); drawGame() }
+            else if (gameState === 'PLAYING') {
+                if (!isPaused) {
+                    updateGame(dt);
+                }
+                drawGame();
+                if (isPaused) {
+                    ctx.save();
+                    ctx.fillStyle = 'rgba(252,248,235,0.7)';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    drawHandwritten('PAUSED', canvas.width / 2, canvas.height / 2 - 20, 48, '#2c2c2c', 'center');
+                    drawHandwritten('Press P or ESC to resume', canvas.width / 2, canvas.height / 2 + 30, 16, '#555', 'center');
+                    ctx.restore();
+                }
+            }
             else if (gameState === 'REPORT') { drawReport() }
             requestAnimationFrame(gameLoop);
         }
