@@ -6,7 +6,6 @@ A troll-physics platformer that runs in your browser. It looks like a hand-drawn
 
 **[Play it here](https://sketchy2.netlify.app/)**
 
-![SKETCHY screenshot](screenshot.png)
 
 ## What makes it annoying
 
